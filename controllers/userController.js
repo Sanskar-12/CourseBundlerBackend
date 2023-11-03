@@ -2,30 +2,35 @@ import catchAsyncError from "../middlewares/catchAsyncError.js";
 import ErrorHandler from "../utils/ErrorHandlerClass.js";
 import { User } from "../models/User.js";
 import { sendToken } from "../utils/sendToken.js";
+import sendEmail from "../utils/sendEmail.js";
+import crypto from "crypto";
+import { Course } from "../models/Course.js";
+import getDataUri from "../utils/datauri.js";
+import cloudinary from "cloudinary";
 
 export const Register = catchAsyncError(async (req, res, next) => {
   const { name, email, password } = req.body;
+  const file = req.file;
 
-  if (!name || !email || !password) {
+  if (!name || !email || !password || !file) {
     return next(new ErrorHandler("Please Fill all Fields", 400));
   }
-
-  // const file=req.file
 
   let user = await User.findOne({ email });
   if (user) {
     return next(new ErrorHandler("User already exists", 400));
   }
 
-  //using cloudinary
+  const fileUri = getDataUri(file);
+  const myCloud = await cloudinary.v2.uploader.upload(fileUri.content);
 
   user = await User.create({
     name,
     email,
     password,
     avatar: {
-      public_id: "jsnd",
-      url: "bsjdnjn",
+      public_id: myCloud.public_id,
+      url: myCloud.secure_url,
     },
   });
 
@@ -38,8 +43,6 @@ export const Login = catchAsyncError(async (req, res, next) => {
   if (!email || !password) {
     return next(new ErrorHandler("Please Fill all Fields", 400));
   }
-
-  // const file=req.file
 
   let user = await User.findOne({ email }).select("+password");
   if (!user) {
@@ -67,4 +70,186 @@ export const logout = catchAsyncError(async (req, res, next) => {
       success: true,
       message: "Logged Out",
     });
+});
+
+export const profile = catchAsyncError(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  res.status(200).json({
+    success: true,
+    user,
+  });
+});
+
+export const changePassword = catchAsyncError(async (req, res, next) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return next(new ErrorHandler("Please Fill all Fields", 400));
+  }
+
+  const user = await User.findById(req.user._id).select("+password");
+
+  const isMatch = await user.comparePassword(oldPassword);
+
+  if (!isMatch) {
+    return next(new ErrorHandler("Incorrect Old Password", 400));
+  }
+
+  user.password = newPassword;
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Password Changed Succesfully",
+  });
+});
+
+export const changeProfile = catchAsyncError(async (req, res, next) => {
+  const { name, email } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (name) user.name = name;
+  if (email) user.email = email;
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Profile Changed Successfully",
+  });
+});
+
+export const changeProfilePicture = catchAsyncError(async (req, res, next) => {
+  const file = req.file;
+
+  const user = await User.findById(req.user._id);
+
+  const fileUri = getDataUri(file);
+  const myCloud = await cloudinary.v2.uploader.upload(fileUri.content);
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+  user.avatar = {
+    public_id: myCloud.public_id,
+    url: myCloud.secure_url,
+  };
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Profile Changed Successfully",
+  });
+});
+
+export const forgetPassword = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return next(new ErrorHandler("User not Found", 400));
+  }
+
+  const resetToken = await user.getresetToken();
+
+  await user.save();
+
+  const url = `${process.env.FRONTEND_URL}/api/v1/resetpassword/${resetToken}`;
+
+  const message = `Click on the link ${url} to reset password`;
+
+  await sendEmail(user.email, "Coursebundler Reset Password", message);
+
+  res.status(200).json({
+    success: true,
+    message: `Email sent to ${user.email}`,
+  });
+});
+
+export const resetPassword = catchAsyncError(async (req, res, next) => {
+  const { token } = req.params;
+
+  const resetPasswordToken = await crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  console.log(resetPasswordToken);
+
+  let user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: {
+      $gt: Date.now(),
+    },
+  });
+
+  if (!user) {
+    return next(new ErrorHandler("Token is invalid or has been expired", 400));
+  }
+
+  user.password = req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Password Changed Successfully",
+  });
+});
+
+export const addtoPlaylist = catchAsyncError(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  const course = await Course.findById(req.body.id);
+
+  if (!course) {
+    return next(new ErrorHandler("Course doesn't exist", 400));
+  }
+
+  const itemExist = user.playlist.find(
+    (item) => item.course.toString() === course._id.toString()
+  );
+
+  if (itemExist) {
+    return next(new ErrorHandler("Course exist in Playlist", 400));
+  }
+
+  user.playlist.push({
+    course: course._id,
+    poster: course.poster.url,
+  });
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Added to Playlist",
+  });
+});
+
+export const removefromPlaylist = catchAsyncError(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  const course = await Course.findById(req.body.id);
+
+  if (!course) {
+    return next(new ErrorHandler("Course doesn't exist", 400));
+  }
+
+  const newPlaylist = user.playlist.filter(
+    (item) => item.course.toString() !== course._id.toString()
+  );
+
+  user.playlist = newPlaylist;
+
+  await user.save();
+  res.status(200).json({
+    success: true,
+    message: "Removed from Playlist",
+  });
 });

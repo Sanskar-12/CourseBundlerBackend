@@ -5,7 +5,7 @@ const ErrorMiddleware=(err,req,res,next)=>{
     err.message=err.message || "Internal Server Error"
 
     res.status(err.statusCode).json({
-        success:true,
+        success:false,
         message:err.message
     })
 }

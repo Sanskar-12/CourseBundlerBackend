@@ -3,17 +3,19 @@ import { config } from "dotenv";
 import CourseRouter from "./routes/courseRoutes.js";
 import UserRouter from "./routes/userRoutes.js";
 import ErrorMiddleware from "./middlewares/Error.js";
+import cookieParser from "cookie-parser";
 
 config({ path: "./config/config.env" });
 const app = express();
 
 //using middlewares
 app.use(express.json());
-// app.use(
-//   express.urlencoded({
-//     extended: true,
-//   })
-// );
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+app.use(cookieParser())
 
 //Api Section
 app.use("/api/v1", CourseRouter);
