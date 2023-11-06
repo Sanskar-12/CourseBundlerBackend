@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { Course } from "../models/Course.js";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "cloudinary";
+import { Stats } from "../models/Stats.js";
 
 export const Register = catchAsyncError(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -253,3 +254,84 @@ export const removefromPlaylist = catchAsyncError(async (req, res, next) => {
     message: "Removed from Playlist",
   });
 });
+
+//Admin
+export const getAllUsers = catchAsyncError(async (req, res, next) => {
+  const users = await User.find({});
+
+  res.status(200).json({
+    success: true,
+    users,
+  });
+});
+
+export const updateUserRole = catchAsyncError(async (req, res, next) => {
+  let user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 400));
+  }
+
+  if (user.role === "admin") {
+    user.role = "user";
+  } else {
+    user.role = "admin";
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Role Updated",
+  });
+});
+
+export const deleteUser = catchAsyncError(async (req, res, next) => {
+  let user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 400));
+  }
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+  //Cancel Subscription
+
+  await user.deleteOne();
+
+  res.status(200).json({
+    success: true,
+    message: "User Deleted",
+  });
+});
+
+export const deleteMyProfile = catchAsyncError(async (req, res, next) => {
+  let user = await User.findById(req.user._id);
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+  //Cancel Subscription
+
+  await user.deleteOne();
+
+  res.status(200).cookie("token", "", {
+    expires: new Date(Date.now()),
+    httpOnly: true,
+    sameSite: "none",
+  }).json({
+    success:true,
+    message:"Profile Deleted"
+  })
+});
+
+
+User.watch().on("change",async()=>{
+  const stats=await Stats.find({}).sort({createdAt:"desc"}).limit(1)
+
+  const subscription=await User.find({"subscription.status":"active"})
+  stats[0].user=await User.countDocuments()
+  stats[0].subscription=subscription.length
+
+  stats[0].createdAt=new Date(Date.now())
+  await stats[0].save()
+})

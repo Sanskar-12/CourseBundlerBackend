@@ -1,7 +1,7 @@
 import express from "express"
 import { addCourseLectures, createCourse, deleteCourse, deleteLecture, getAllCourses, getCourseLectures } from "../controllers/courseController.js"
 import singleUpload from "../middlewares/singleUpload.js"
-import { isAdmin, isAuthenticated } from "../middlewares/isAuthenticated.js"
+import { isAdmin, isAuthenticated, isSubscriber } from "../middlewares/isAuthenticated.js"
 
 const router=express.Router()
 
@@ -12,7 +12,7 @@ router.post("/create/course",isAuthenticated,isAdmin,singleUpload,createCourse)
 router.get("/courses",getAllCourses)
 
 //get Course Lectures
-router.get("/getcourselectures/:id",isAuthenticated,getCourseLectures)
+router.get("/getcourselectures/:id",isAuthenticated,isSubscriber,getCourseLectures)
 
 //add Lectures to Course
 router.post("/addcourselectures/:id",isAuthenticated,isAdmin,singleUpload,addCourseLectures)

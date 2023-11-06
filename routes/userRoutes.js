@@ -1,6 +1,6 @@
 import express from "express";
-import {  Login, Register, addtoPlaylist, changePassword, changeProfile, changeProfilePicture, forgetPassword, logout, profile, removefromPlaylist, resetPassword } from "../controllers/userController.js";
-import { isAuthenticated } from "../middlewares/isAuthenticated.js";
+import {  Login, Register, addtoPlaylist, changePassword, changeProfile, changeProfilePicture, deleteMyProfile, deleteUser, forgetPassword, getAllUsers, logout, profile, removefromPlaylist, resetPassword, updateUserRole } from "../controllers/userController.js";
+import { isAdmin, isAuthenticated } from "../middlewares/isAuthenticated.js";
 import singleUpload from "../middlewares/singleUpload.js"
 
 const router = express.Router();
@@ -37,6 +37,22 @@ router.post("/addToPlaylist",isAuthenticated,addtoPlaylist)
 
 //Remove from Playlist
 router.post("/removefromPlaylist",isAuthenticated,removefromPlaylist)
+
+//Delete my Profile
+router.delete("/me",isAuthenticated,deleteMyProfile)
+
+//Admin Routes
+
+//Get all Users
+router.get("/admin/getallusers",isAuthenticated,isAdmin,getAllUsers)
+
+//Update User Role
+router.put("/admin/updateuserrole/:id",isAuthenticated,isAdmin,updateUserRole)
+
+//Delete User
+router.delete("/admin/deleteuser/:id",isAuthenticated,isAdmin,deleteUser)
+
+
 
 
 
