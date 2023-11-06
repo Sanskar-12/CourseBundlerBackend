@@ -6,6 +6,7 @@ import OtherRouter from "./routes/otherRoutes.js";
 import PaymentRouter from "./routes/paymentRoutes.js";
 import ErrorMiddleware from "./middlewares/Error.js";
 import cookieParser from "cookie-parser";
+import cors from "cors"
 
 config({ path: "./config/config.env" });
 const app = express();
@@ -18,6 +19,11 @@ app.use(
   })
 );
 app.use(cookieParser())
+app.use(cors({
+  origin:process.env.FRONTEND_URL,
+  credentials:true,
+  methods:["GET","POST","PUT","DELETE"]
+}))
 
 //Api Section
 app.use("/api/v1", CourseRouter);
