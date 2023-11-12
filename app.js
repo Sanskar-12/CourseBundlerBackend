@@ -22,8 +22,7 @@ app.use(cookieParser())
 app.use(cors({
   origin:process.env.FRONTEND_URL,
   credentials:true,
-  methods:["GET","POST","PUT","DELETE"],
-  allowedHeaders:"Content-Type"
+  methods:["GET","POST","PUT","DELETE"]
 }))
 
 //Api Section
